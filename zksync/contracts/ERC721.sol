@@ -34,9 +34,10 @@ contract InfinityStones is ERC721URIStorage, Ownable {
                 _ownedTokens[recipient].push(tokenId);
                 _setTokenURI(tokenId, stoneName);
                 tokenId++;
-                break;
+                return;
             }
         }
+        revert("invalid stone name");
     }
 
     function setBaseURI(string memory _baseURI) public onlyOwner {

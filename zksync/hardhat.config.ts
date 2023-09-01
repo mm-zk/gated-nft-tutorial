@@ -9,13 +9,14 @@ const config: HardhatUserConfig = {
     version: "latest",
     settings: {},
   },
-  defaultNetwork: "zkSyncTestnet",
+  defaultNetwork: "zkSyncLocal",
   networks: {
     hardhat: {
       zksync: false,
     },
-    zkSyncTestnet: {
-      url: "https://zksync2-testnet.zksync.dev",
+
+    zkSyncLocal: {
+      url: "http://localhost:8011",
       ethNetwork: "goerli",
       zksync: true,
       // contract verification endpoint
