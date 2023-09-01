@@ -3,6 +3,8 @@ import { HardhatUserConfig } from "hardhat/config";
 import "@matterlabs/hardhat-zksync-solc";
 import "@matterlabs/hardhat-zksync-deploy";
 import "@matterlabs/hardhat-zksync-verify";
+import "@matterlabs/hardhat-zksync-chai-matchers";
+
 
 const config: HardhatUserConfig = {
   zksolc: {
