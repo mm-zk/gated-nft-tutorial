@@ -40,31 +40,27 @@ class GeneralPaymasterInputImplementation {
   }
 }
 
+const RICH_WALLET_1_ADDRESS = "0xa61464658AfeAf65CccaaFD3a512b69A83B77618";
+const RICH_WALLET_1_KEY = "0xac1e735be8536c6534bb4f17f06f6afc73b2b5ba84ac2cfb12f7461b20c0bbe3";
+const RICH_WALLET_2_ADDRESS = "0x0D43eB5B8a47bA8900d84AA36656c92024e9772e";
+const RICH_WALLET_4_ADDRESS = "0x8002cD98Cfb563492A6fB3E7C8243b7B9Ad4cc92";
+
+
+
 describe("NFT Paymaster tests", function () {
   it("Account with no tokens, uses paymaster.", async function () {
     Error.stackTraceLimit = Infinity;
 
-    //const provider = Provider.getDefaultProvider();
-
     const hreProvider = new Provider((hre.network.config as HttpNetworkConfig).url);
 
-    // Random empty account (will be used to)
+    // Random empty account (will be used to check if paymaster works)
     const emptyAccountKey = "0x5affc2c7d869026d4676e3d72207f68b6f01dc1c16c475d3fc6804f0da873912";
     const emptyAccountAddress = "0x3Dae7faa4B98464D115fE80ce220482fff9A6727";
     const emptyAccountWallet = new Wallet(emptyAccountKey, hreProvider);
 
-    const richWallet1Address = "0xa61464658AfeAf65CccaaFD3a512b69A83B77618";
-    const richWallet1Key = "0xac1e735be8536c6534bb4f17f06f6afc73b2b5ba84ac2cfb12f7461b20c0bbe3";
-    const richWallet1 = new Wallet(richWallet1Key, hreProvider);
-
-    const richWallet2Address = "0x0D43eB5B8a47bA8900d84AA36656c92024e9772e";
-    const richWallet4Address = "0x8002cD98Cfb563492A6fB3E7C8243b7B9Ad4cc92";
-
-
-
+    const richWallet1 = new Wallet(RICH_WALLET_1_KEY, hreProvider);
     const wallet = new Wallet(PRIVATE_KEY, hreProvider);
     const deployer = new Deployer(hre, wallet);
-
 
     // Deploy the contracts: NFT, Paymaster and Greeter.
     const nft = await deployNFT(deployer);
@@ -76,22 +72,22 @@ describe("NFT Paymaster tests", function () {
     await ((await richWallet1.transfer({ to: paymaster.address, amount: ethers.utils.parseUnits("1000", 18) }))).wait();
 
     // Mint the 0-th NFT to the first rich wallet.
-    await (await nft.mint(richWallet1Address, "Space Stone")).wait();
+    await (await nft.mint(RICH_WALLET_1_ADDRESS, "Space Stone")).wait();
     // Mint 1-st NFT to the second rich wallet.
-    await (await nft.mint(richWallet2Address, "Soul Stone")).wait();
+    await (await nft.mint(RICH_WALLET_2_ADDRESS, "Soul Stone")).wait();
 
     // Mint the 2-nd NFT to the emptyAccount.
     await (await nft.mint(emptyAccountAddress, "Power Stone")).wait();
 
     expect(await nft.ownerOf(2)).to.eq(emptyAccountAddress);
-    expect(await nft.ownerOf(1)).to.eq(richWallet2Address);
-    expect(await nft.ownerOf(0)).to.eq(richWallet1Address);
+    expect(await nft.ownerOf(1)).to.eq(RICH_WALLET_2_ADDRESS);
+    expect(await nft.ownerOf(0)).to.eq(RICH_WALLET_1_ADDRESS);
 
 
-    let transferTx = await nft.connect(richWallet1).transferFrom(richWallet1Address, richWallet4Address, 0);
+    let transferTx = await nft.connect(richWallet1).transferFrom(RICH_WALLET_1_ADDRESS, RICH_WALLET_4_ADDRESS, 0);
     await transferTx.wait();
 
-    expect(await nft.ownerOf(0)).to.eq(richWallet4Address);
+    expect(await nft.ownerOf(0)).to.eq(RICH_WALLET_4_ADDRESS);
 
 
     // Double-check that empty account still has no money.
