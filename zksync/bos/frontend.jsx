@@ -354,7 +354,7 @@ function serialize(transaction) {
     fields.push(ethers.utils.getAddress(from));
 
     // Add meta
-    fields.push(formatNumber(50000, 'gasPerPubdata'));
+    fields.push(formatNumber(meta.gasPerPubdata, 'gasPerPubdata'));
     fields.push((meta.factoryDeps ?? []).map((dep) => ethers.utils.hexlify(dep)));
 
     if (meta.customSignature && ethers.utils.arrayify(meta.customSignature).length == 0) {
@@ -436,12 +436,8 @@ function getSignedDigest(transaction) {
         chainId: transaction.chainId
     };
     console.log("in get signed");
-    console.log(ethers.hash);
-    console.log(ethers.hash.TypedDataEncoder);
-    console.log(ethers.TypedDataEncoder);
+
     console.log(getSignInput(transaction));
-    console.log(ethers.utils._TypedDataEncoder.hash);
-    console.log("after");
     return ethers.utils._TypedDataEncoder.hash(domain, eip712Types, getSignInput(transaction));
 }
 
