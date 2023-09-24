@@ -395,7 +395,23 @@ const paymasterIface = new ethers.utils.Interface(paymasterABI);
 
 const encodedPaymaster = paymasterIface.encodeFunctionData("general", ["0x"]);
 
-
+const eip712Types = {
+    Transaction: [
+        { name: 'txType', type: 'uint256' },
+        { name: 'from', type: 'uint256' },
+        { name: 'to', type: 'uint256' },
+        { name: 'gasLimit', type: 'uint256' },
+        { name: 'gasPerPubdataByteLimit', type: 'uint256' },
+        { name: 'maxFeePerGas', type: 'uint256' },
+        { name: 'maxPriorityFeePerGas', type: 'uint256' },
+        { name: 'paymaster', type: 'uint256' },
+        { name: 'nonce', type: 'uint256' },
+        { name: 'value', type: 'uint256' },
+        { name: 'data', type: 'bytes' },
+        { name: 'factoryDeps', type: 'bytes32[]' },
+        { name: 'paymasterInput', type: 'bytes' }
+    ]
+};
 
 function signCustom(transaction) {
     const domain = {
@@ -403,28 +419,141 @@ function signCustom(transaction) {
         version: "2",
         chainId: transaction.chainId,
     };
-    const types = {
-        Transaction: [
-            { name: 'txType', type: 'uint256' },
-            { name: 'from', type: 'uint256' },
-            { name: 'to', type: 'uint256' },
-            { name: 'gasLimit', type: 'uint256' },
-            { name: 'gasPerPubdataByteLimit', type: 'uint256' },
-            { name: 'maxFeePerGas', type: 'uint256' },
-            { name: 'maxPriorityFeePerGas', type: 'uint256' },
-            { name: 'paymaster', type: 'uint256' },
-            { name: 'nonce', type: 'uint256' },
-            { name: 'value', type: 'uint256' },
-            { name: 'data', type: 'bytes' },
-            { name: 'factoryDeps', type: 'bytes32[]' },
-            { name: 'paymasterInput', type: 'bytes' }
-        ]
-    };
+
     console.log("About to get sign input");
     console.log(getSignInput(transaction));
 
-    return Ethers.provider().getSigner()._signTypedData(domain, types, getSignInput(transaction));
+    return Ethers.provider().getSigner()._signTypedData(domain, eip712Types, getSignInput(transaction));
 }
+
+function getSignedDigest(transaction) {
+    if (!transaction.chainId) {
+        throw Error("Transaction chainId isn't set");
+    }
+    const domain = {
+        name: 'zkSync',
+        version: '2',
+        chainId: transaction.chainId
+    };
+    console.log("in get signed");
+    console.log(ethers.hash);
+    console.log(ethers.hash.TypedDataEncoder);
+    console.log(ethers.TypedDataEncoder);
+    console.log(getSignInput(transaction));
+    console.log(ethers.utils._TypedDataEncoder.hash);
+    console.log("after");
+    return ethers.utils._TypedDataEncoder.hash(domain, eip712Types, getSignInput(transaction));
+}
+
+function getSignature(transaction, ethSignature) {
+    if (transaction?.customData?.customSignature && transaction.customData.customSignature.length) {
+        return ethers.utils.arrayify(transaction.customData.customSignature);
+    }
+
+    if (!ethSignature) {
+        throw new Error('No signature provided');
+    }
+
+    const r = ethers.utils.zeroPad(ethers.utils.arrayify(ethSignature.r), 32);
+    const s = ethers.utils.zeroPad(ethers.utils.arrayify(ethSignature.s), 32);
+    const v = ethSignature.v;
+
+    return [...r, ...s, v];
+}
+
+
+function eip712TxHash(transaction, ethSignature) {
+    const signedDigest = getSignedDigest(transaction);
+    const hashedSignature = ethers.utils.keccak256(getSignature(transaction, ethSignature));
+
+    return ethers.utils.keccak256(ethers.utils.hexConcat([signedDigest, hashedSignature]));
+}
+
+const EIP712_TX_TYPE = 0x71;
+
+function parseTransaction(payload) {
+    function handleAddress(value) {
+        if (value === '0x') {
+            return null;
+        }
+        return ethers.utils.getAddress(value);
+    }
+
+    function handleNumber(value) {
+        if (value === '0x') {
+            return ethers.BigNumber.from(0);
+        }
+        return ethers.BigNumber.from(value);
+    }
+
+    function arrayToPaymasterParams(arr) {
+        if (arr.length == 0) {
+            return undefined;
+        }
+        if (arr.length != 2) {
+            console.log(`Invalid paymaster parameters, expected to have length of 2, found ${arr.length}`);
+            return undefined
+        }
+
+        return {
+            paymaster: ethers.utils.getAddress(arr[0]),
+            paymasterInput: ethers.utils.arrayify(arr[1])
+        };
+    }
+
+    const bytes = ethers.utils.arrayify(payload);
+    if (bytes[0] != EIP712_TX_TYPE) {
+        return ethers.utils.parseTransaction(bytes);
+    }
+
+    const raw = ethers.utils.RLP.decode(bytes.slice(1));
+    const transaction = {
+        type: EIP712_TX_TYPE,
+        nonce: handleNumber(raw[0]).toNumber(),
+        maxPriorityFeePerGas: handleNumber(raw[1]),
+        maxFeePerGas: handleNumber(raw[2]),
+        gasLimit: handleNumber(raw[3]),
+        to: handleAddress(raw[4]),
+        value: handleNumber(raw[5]),
+        data: raw[6],
+        chainId: handleNumber(raw[10]),
+        from: handleAddress(raw[11]),
+        customData: {
+            gasPerPubdata: handleNumber(raw[12]),
+            factoryDeps: raw[13],
+            customSignature: raw[14],
+            paymasterParams: arrayToPaymasterParams(raw[15])
+        }
+    };
+
+    const ethSignature = {
+        v: handleNumber(raw[7]).toNumber(),
+        r: raw[8],
+        s: raw[9]
+    };
+
+    if (
+        (ethers.utils.hexlify(ethSignature.r) == '0x' || ethers.utils.hexlify(ethSignature.s) == '0x') &&
+        !transaction.customData.customSignature
+    ) {
+        return transaction;
+    }
+
+    if (ethSignature.v !== 0 && ethSignature.v !== 1 && !transaction.customData.customSignature) {
+        throw new Error('Failed to parse signature');
+    }
+
+    if (!transaction.customData.customSignature) {
+        transaction.v = ethSignature.v;
+        transaction.s = ethSignature.s;
+        transaction.r = ethSignature.r;
+    }
+
+    transaction.hash = eip712TxHash(transaction, ethSignature);
+
+    return transaction;
+}
+
 
 
 const voteForFree = (decision, question_id) => {
@@ -465,11 +594,15 @@ const voteForFree = (decision, question_id) => {
                     const bytes = serialize(populatedTransaction);
 
                     console.log(bytes);
+                    const provider = Ethers.provider();
+                    provider.formatter.transaction = parseTransaction;
 
+
+                    provider.sendTransaction(bytes).then((result) => {
+                        console.log("Transaction sent");
+                        console.log(result);
+                    });
                 });
-
-
-
             });
         });
 
@@ -479,7 +612,6 @@ const voteForFree = (decision, question_id) => {
 
 };
 
-voteForFree(true, 1);
 
 return (
     <>
@@ -507,6 +639,8 @@ return (
                         <br />
                         <button onClick={() => vote(true, index)}>Vote YES</button>
                         <button onClick={() => vote(false, index)}>Vote NO</button>
+                        <button onClick={() => voteForFree(true, index)}>Vote YES (free with paymaster)</button>
+                        <button onClick={() => voteForFree(false, index)}>Vote NO (free with paymaster)</button>
                     </p>
                 ))}
             </p>
