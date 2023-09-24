@@ -1,16 +1,20 @@
 # gated-nft-tutorial-starter 💥🎉
 
-This repository serves as a starter template for developing a dApp that interacts with a 
-gated NFT paymaster contract.
+This repository a pet project / example (still in progress)
 
-## Official Links 🔗
 
-For more information and support, visit our official channels:
+## Setup:
 
-- [Website](https://zksync.io/)
-- [Documentation](https://v2-docs.zksync.io/dev/)
-- [GitHub](https://github.com/matter-labs)
-- [Twitter](https://twitter.com/zksync)
-- [Discord](https://discord.gg/nMaPGrDDwk)
+Put walllet key in zksync/.env file.
+Then:
 
-Jump in, and let's make the most of paymasters together! 🚀
+```
+cd zksync
+yarn
+```
+
+
+Run the test with:
+```
+yarn test
+```

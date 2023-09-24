@@ -25,6 +25,17 @@ const config: HardhatUserConfig = {
       verifyURL:
         "https://zksync2-testnet-explorer.zksync.dev/contract_verification",
     },
+
+    testnet: {
+      url: "https://testnet.era.zksync.dev",
+      ethNetwork: "goerli",
+      zksync: true
+    },
+    mainnet: {
+      url: "https://mainnet.era.zksync.io",
+      ethNetwork: "mainnet",
+      zksync: true,
+    }
   },
   solidity: {
     version: "0.8.17",

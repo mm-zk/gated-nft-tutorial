@@ -5,15 +5,11 @@ import { Deployer } from "@matterlabs/hardhat-zksync-deploy";
 
 // load env file
 import dotenv from "dotenv";
-import { BigNumber, Signer, ethers } from "ethers";
+import { BigNumber, ethers } from "ethers";
 import { HttpNetworkConfig } from "hardhat/types";
-import { getGeneralPaymasterInput, getPaymasterParams } from "zksync-web3/build/src/paymaster-utils";
+import { getPaymasterParams } from "zksync-web3/build/src/paymaster-utils";
 dotenv.config();
 
-const PRIVATE_KEY = process.env.WALLET_PRIVATE_KEY || "";
-
-if (!PRIVATE_KEY)
-  throw "⛔️ Private key not detected! Add it to the .env file!";
 
 async function deployGreeter(deployer: Deployer): Promise<Contract> {
   const artifact = await deployer.loadArtifact("Greeter");
@@ -21,7 +17,7 @@ async function deployGreeter(deployer: Deployer): Promise<Contract> {
 }
 
 async function deployNFT(deployer: Deployer): Promise<Contract> {
-  const artifact = await deployer.loadArtifact("InfinityStones");
+  const artifact = await deployer.loadArtifact("MLVotingNFT");
   return await deployer.deploy(artifact);
 }
 
@@ -68,10 +64,10 @@ describe("NFT Paymaster tests", function () {
     const nft = await deployNFT(deployer);
     const voter = await deployVoter(deployer, nft.address);
 
-    await (await nft.mint(RICH_WALLET_1_ADDRESS, "Space Stone")).wait();
+    await (await nft.mint(RICH_WALLET_1_ADDRESS)).wait();
     // Mint 1-st NFT to the second rich wallet.
-    await (await nft.mint(RICH_WALLET_2_ADDRESS, "Soul Stone")).wait();
-    await (await nft.mint(RICH_WALLET_1_ADDRESS, "Power Stone")).wait();
+    await (await nft.mint(RICH_WALLET_2_ADDRESS)).wait();
+    await (await nft.mint(RICH_WALLET_1_ADDRESS)).wait();
     const question = "Is it raining?"
 
 
@@ -108,7 +104,7 @@ describe("NFT Paymaster tests", function () {
     const emptyAccountWallet = new Wallet(emptyAccountKey, hreProvider);
 
     const richWallet1 = new Wallet(RICH_WALLET_1_KEY, hreProvider);
-    const wallet = new Wallet(PRIVATE_KEY, hreProvider);
+    const wallet = new Wallet(RICH_WALLET_1_KEY, hreProvider);
     const deployer = new Deployer(hre, wallet);
 
     // Deploy the contracts: NFT, Paymaster and Greeter.
@@ -121,12 +117,12 @@ describe("NFT Paymaster tests", function () {
     await ((await richWallet1.transfer({ to: paymaster.address, amount: ethers.utils.parseUnits("1000", 18) }))).wait();
 
     // Mint the 0-th NFT to the first rich wallet.
-    await (await nft.mint(RICH_WALLET_1_ADDRESS, "Space Stone")).wait();
+    await (await nft.mint(RICH_WALLET_1_ADDRESS)).wait();
     // Mint 1-st NFT to the second rich wallet.
-    await (await nft.mint(RICH_WALLET_2_ADDRESS, "Soul Stone")).wait();
+    await (await nft.mint(RICH_WALLET_2_ADDRESS)).wait();
 
     // Mint the 2-nd NFT to the emptyAccount.
-    await (await nft.mint(emptyAccountAddress, "Power Stone")).wait();
+    await (await nft.mint(emptyAccountAddress)).wait();
 
     expect(await nft.ownerOf(2)).to.eq(emptyAccountAddress);
     expect(await nft.ownerOf(1)).to.eq(RICH_WALLET_2_ADDRESS);
@@ -149,10 +145,12 @@ describe("NFT Paymaster tests", function () {
 
 
     // Of course fails -- we have to use the paymaster...
-    // TODO: better error when you pass a wrong field in cust.
+    // TODO: better error when you pass a wrong field in customData.
     // TODO: don't require all the fields.
 
     const paymasterParams = getPaymasterParams(paymaster.address, new GeneralPaymasterInputImplementation("0x00"));
+
+    console.log("Paymaster params: " + paymasterParams);
 
     const setGreetingTx = await greeter.connect(emptyAccountWallet).setGreeting("Hola, mundo!", {
       gasLimit: GAS_LIMIT,
@@ -171,6 +169,18 @@ describe("NFT Paymaster tests", function () {
     expect(await greeter.last_sender()).to.equal(emptyAccountAddress);
 
     const otherEmptyAccountWallet = new Wallet("0x03dd0144f47d2927112f3d5368d4630dd1f4c040a7fa91ac751e0d51ab6d1837", hreProvider);
+
+    let aa = greeter.connect(otherEmptyAccountWallet).setGreeting("Hey!", {
+      gasLimit: GAS_LIMIT,
+      maxPriorityFeePerGas: ethers.BigNumber.from(0),
+      maxFeePerGas: gasPrice,
+      customData: {
+        gasPerPubdata: 5000,
+        paymasterParams: paymasterParams
+      }
+    });
+
+    aa.foo;
 
 
     expect(greeter.connect(otherEmptyAccountWallet).setGreeting("Hey!", {

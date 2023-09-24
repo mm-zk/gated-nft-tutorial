@@ -1,16 +1,19 @@
 import { Provider, Wallet } from "zksync-web3";
 import * as ethers from "ethers";
-import { HardhatRuntimeEnvironment } from "hardhat/types";
+import { HardhatRuntimeEnvironment, HttpNetworkConfig } from "hardhat/types";
 import { Deployer } from "@matterlabs/hardhat-zksync-deploy";
 import * as fs from "fs";
+import * as zk from 'zksync-web3';
 
 // load env file
 import dotenv from "dotenv";
+import { zeroPad } from "ethers/lib/utils";
+import { assert } from "chai";
 dotenv.config();
 
 const PRIVATE_KEY = process.env.WALLET_PRIVATE_KEY || "";
 // The address of the NFT collection contract
-const NFT_COLLECTION_ADDRESS = "NFT-CONTRACT-ADDRESS-HERE";
+const NFT_COLLECTION_ADDRESS = "0x5657A1278924839Fbc32EBAA29fcd475e23105f7";
 
 if (!PRIVATE_KEY)
   throw "⛔️ Private key not detected! Add it to the .env file!";
@@ -19,13 +22,26 @@ if (!NFT_COLLECTION_ADDRESS)
   throw "⛔️ NFT_COLLECTION_ADDRESS not detected! Add it to the NFT_COLLECTION_ADDRESS variable!";
 
 export default async function (hre: HardhatRuntimeEnvironment) {
-  console.log(`Running deploy script for the ERC721GatedPaymaster contract...`);
-  const provider = new Provider("https://testnet.era.zksync.dev");
+  let url = ((hre.network.config) as HttpNetworkConfig).url
+  console.log(`Running deploy script for the ERC721GatedPaymaster contract - ${url}...`);
+  const provider = new Provider(url);
 
   // The wallet that will deploy the token and the paymaster
   // It is assumed that this wallet already has sufficient funds on zkSync
   const wallet = new Wallet(PRIVATE_KEY);
   const deployer = new Deployer(hre, wallet);
+
+
+  const nftContractArtifact = await deployer.loadArtifact("MLVotingNFT");
+
+  const nftContract = new zk.Contract(NFT_COLLECTION_ADDRESS, nftContractArtifact.abi, provider);
+
+
+  console.log(`Checking balance of ${wallet.address} on ${NFT_COLLECTION_ADDRESS}`);
+  let balance = await nftContract.balanceOf(wallet.address);
+  console.log(`NFT Balance is ${balance}`);
+  assert(balance == 1);
+
 
   // Deploying the paymaster
   const paymasterArtifact = await deployer.loadArtifact("ERC721GatedPaymaster");
@@ -51,28 +67,6 @@ export default async function (hre: HardhatRuntimeEnvironment) {
 
   let paymasterBalance = await provider.getBalance(paymaster.address);
   console.log(`Paymaster ETH balance is now ${paymasterBalance.toString()}`);
-
-  // Verify contract programmatically
-  //
-  // Contract MUST be fully qualified name (e.g. path/sourceName:contractName)
-  const contractFullyQualifedName =
-    "contracts/ERC721GatedPaymaster.sol:ERC721GatedPaymaster";
-  const verificationId = await hre.run("verify:verify", {
-    address: paymaster.address,
-    contract: contractFullyQualifedName,
-    constructorArguments: [NFT_COLLECTION_ADDRESS],
-    bytecode: paymasterArtifact.bytecode,
-  });
-  console.log(
-    `${contractFullyQualifedName} verified! VerificationId: ${verificationId}`,
-  );
-
-  // Update frontend with contract address
-  const frontendConstantsFilePath =
-    __dirname + "/../../frontend/app/constants/consts.tsx";
-  const data = fs.readFileSync(frontendConstantsFilePath, "utf8");
-  const result = data.replace(/PAYMASTER-CONTRACT-ADDRESS/g, paymaster.address);
-  fs.writeFileSync(frontendConstantsFilePath, result, "utf8");
 
   console.log(`Done!`);
 }
