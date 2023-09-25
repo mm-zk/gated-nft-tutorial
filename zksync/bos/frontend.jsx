@@ -4,8 +4,7 @@ const allQuestions = ["first", "second", "third"];
 State.init({
     accountBalance: 0,
     hasNFT: 0,
-    // FIXME: reset to -1
-    nftId: 0,
+    nftId: -1,
     getVotes: Array.from({ length: allQuestions.length }, () => ["?", "?"]),
     questionsLoaded: false,
     addQuestion: "",
@@ -91,7 +90,7 @@ const guessNFTId = () => {
     if (state.nftId == -1) {
         state.nftId = -2;
 
-        for (let i = 0; i < 10; i++) {
+        for (let i = 0; i < 40; i++) {
             console.log("Querying owner of ", i);
             checkOwner(i);
         }
