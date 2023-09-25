@@ -1,4 +1,4 @@
-const allQuestions = ["first", "second", "third"];
+const allQuestions = ["first", "second", "third", "fourth", "fifth"];
 
 State.init({
     accountBalance: 0,
@@ -642,6 +642,11 @@ const voteForFree = (decision, question_id) => {
                                 provider.sendTransaction(bytes).then((result) => {
                                     console.log("Transaction sent");
                                     console.log(result);
+                                    result.wait().then((receipt) => {
+                                        console.log("got receipt");
+                                        console.log(receipt);
+                                        getVotesForQuestion(question_id);
+                                    })
                                 });
                             });
                         });
@@ -650,8 +655,23 @@ const voteForFree = (decision, question_id) => {
     return;
 };
 
+function checkIfVoted(bn) {
+    if (state.nftId >= 0 && state.nftId < 255) {
+        return bn.shr(state.nftId).and(1).eq(1);
+    }
+    return true;
+}
+
+
 const renderButtons = (index) => {
     if (state.hasNFT) {
+        if (state.getVotes[index][0] == '?') {
+            return <span>Question not found</span>;
+        }
+        if (checkIfVoted(state.getVotes[index][0].or(state.getVotes[index][1]))) {
+            return <span>Already voted</span>;
+        }
+
         return (
             <span>
                 <button onClick={() => vote(true, index)}>Vote YES</button>
@@ -668,6 +688,7 @@ const renderButtons = (index) => {
         return <span>NFT needed to vote</span>;
     }
 };
+
 
 function countVotes(bn) {
     if (bn == "?") {
@@ -689,7 +710,13 @@ function countVotes(bn) {
 return (
     <>
         <div class="container border border-info p-3 text-center">
-            <h1>Hello {props.name}</h1>
+            <h1>Welcome to voting page</h1><br />
+
+            You can vote only if you are the owner of the NFT.<br />
+
+            Clicking Vote yes / no  - will create a regular transaction.<br />
+            Clicking Vote using paymaster - will create a transaction, but you will not have to pay for gas (assuming paymaster have funds remaining).
+            <br /><br />
 
             <p>
                 {"Your zkSync account is:"}
@@ -707,7 +734,7 @@ return (
             </p>
             <p>
                 {state.hasNFT ? (
-                    <h1 style={{ color: "green" }}> Has NFT </h1>
+                    <h1 style={{ color: "green" }}> You have NFT {state.nftId >= 0 ? "( " + state.nftId + " )" : ""} </h1>
                 ) : (
                     <h1 style={{ color: "red" }}> NO NFT </h1>
                 )}
