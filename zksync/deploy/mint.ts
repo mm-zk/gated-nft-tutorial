@@ -49,6 +49,7 @@ const addresses = [
     "0x2da10A1e27bF85cEdD8FFb1AbBe97e53391C0295",
     "0x3355df6D4c9C3035724Fd0e3914dE96A5a83aaf4",
     "0xc1792c7EB16aCa7e1d506728643099b313f95Dba",
+    "0x6f2DD1D018dE4b7d12698127958bE1191a97D53e"
 ]
 
 // An example of a deploy script that will deploy and call a simple contract.
